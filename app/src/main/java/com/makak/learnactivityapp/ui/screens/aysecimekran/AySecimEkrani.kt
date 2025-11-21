@@ -1,6 +1,5 @@
-package com.makak.learnactivityapp.ui.screens.screen1
+package com.makak.learnactivityapp.ui.screens.aysecimekran
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,51 +18,68 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.makak.learnactivityapp.ui.theme.LearnactivityappTheme
+import com.makak.learnactivityapp.ui.screens.ödemeekran.PaymentMemory
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 @Composable
-fun Screen1(navController: NavController) {
-    Screen1Content(
-        onItemClick = { siteName ->
+fun Screen2(
+    navController: NavController,
+    siteName: String = "Nezihpark Sitesi"
+) {
+    Screen2Content(
+        siteName = siteName,
+        onItemClick = { selectedMonth ->
             val encodedSiteName = URLEncoder.encode(siteName, StandardCharsets.UTF_8.toString())
-            navController.navigate("screen2/$encodedSiteName")
+            val encodedMonth = URLEncoder.encode(selectedMonth, StandardCharsets.UTF_8.toString())
+            navController.navigate("screen3/$encodedSiteName/$encodedMonth")
         }
     )
 }
 
 @Composable
-fun Screen1Content(
+fun Screen2Content(
+    siteName: String = "Nezihpark Sitesi",
     onItemClick: (String) -> Unit = {}
 ) {
-    val sites = listOf("Nezihpark Sitesi")
+    val months = listOf("Kasım 2025", "Ekim 2025", "Eylül 2025", "Aralık 2025", "Ocak 2026")
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF5F5F5))
             .padding(16.dp)
     ) {
-        // Header
+        // Header Section
         Text(
-            text = "screen1",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Medium,
-            color = Color.Gray,
-            modifier = Modifier.padding(bottom = 24.dp)
+            text = siteName,
+            style = MaterialTheme.typography.headlineLarge,
+            modifier = Modifier.padding(bottom = 8.dp)
         )
 
-        // List
+        Text(
+            text = "Ay seçin",
+            fontSize = 16.sp,
+            color = Color.Gray,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+
+        // Months List
         LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(bottom = 12.dp),
+            modifier = Modifier.weight(1f)
         ) {
-            items(sites) { site ->
+            items(months) { month ->
+                val isMonthPaid = PaymentMemory.isMonthFullyPaid(siteName, month)
+
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onItemClick(site) },
+                        .clickable { onItemClick(month) },
                     shape = RoundedCornerShape(8.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isMonthPaid) Color(0xFF4CAF50).copy(alpha = 0.2f) else Color.White
+                    ),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Row(
@@ -74,14 +90,15 @@ fun Screen1Content(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = site,
+                            text = month,
                             fontSize = 16.sp,
-                            fontWeight = FontWeight.Normal
+                            fontWeight = FontWeight.Normal,
+                            color = if (isMonthPaid) Color(0xFF2E7D32) else Color.Black
                         )
                         Icon(
                             imageVector = Icons.Default.KeyboardArrowRight,
                             contentDescription = "Navigate",
-                            tint = Color.Gray
+                            tint = if (isMonthPaid) Color(0xFF2E7D32) else Color.Gray
                         )
                     }
                 }
@@ -92,8 +109,8 @@ fun Screen1Content(
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
-fun Screen1Preview() {
+fun Screen2Preview() {
     LearnactivityappTheme {
-        Screen1Content()
+        Screen2Content()
     }
 }

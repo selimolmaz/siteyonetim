@@ -1,13 +1,11 @@
-package com.makak.learnactivityapp.ui.screens.screen2
+package com.makak.learnactivityapp.ui.screens.sitesecimekran
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -24,83 +22,51 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 @Composable
-fun Screen2(
-    navController: NavController,
-    siteName: String = "Nezihpark Sitesi"
-) {
-    Screen2Content(
-        siteName = siteName,
-        onBackClick = { navController.popBackStack() },
-        onItemClick = { selectedMonth ->
+fun Screen1(navController: NavController) {
+    Screen1Content(
+        onItemClick = { siteName ->
             val encodedSiteName = URLEncoder.encode(siteName, StandardCharsets.UTF_8.toString())
-            val encodedMonth = URLEncoder.encode(selectedMonth, StandardCharsets.UTF_8.toString())
-            navController.navigate("screen3/$encodedSiteName/$encodedMonth")
+            navController.navigate("screen2/$encodedSiteName")
         }
     )
 }
 
 @Composable
-fun Screen2Content(
-    siteName: String = "Nezihpark Sitesi",
-    onBackClick: () -> Unit = {},
+fun Screen1Content(
     onItemClick: (String) -> Unit = {}
 ) {
-    val months = listOf("Kasım 2025", "Ekim 2025", "Eylül 2025", "Aralık 2025", "Ocak 2026")
+    val sites = listOf("Nezihpark Sitesi")
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF5F5F5))
             .padding(16.dp)
     ) {
-        // Header with back button
-        Row(
-            modifier = Modifier.padding(bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(
-                onClick = onBackClick,
-                modifier = Modifier.padding(end = 8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color.Gray
-                )
-            }
-            Text(
-                text = "screen2",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color.Gray
-            )
-        }
-
-        // Site name
+        // Header Section
         Text(
-            text = siteName,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.SemiBold,
+            text = "Site Seçimi",
+            style = MaterialTheme.typography.headlineLarge,
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        // Subtitle
         Text(
-            text = "Ayı seçin",
-            fontSize = 14.sp,
+            text = "Site seçin",
+            fontSize = 16.sp,
             color = Color.Gray,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        // List
+        // Sites List
         LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(bottom = 12.dp),
+            modifier = Modifier.weight(1f)
         ) {
-            items(months) { month ->
+            items(sites) { site ->
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onItemClick(month) },
+                        .clickable { onItemClick(site) },
                     shape = RoundedCornerShape(8.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -113,7 +79,7 @@ fun Screen2Content(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = month,
+                            text = site,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Normal
                         )
@@ -131,8 +97,8 @@ fun Screen2Content(
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
-fun Screen2Preview() {
+fun Screen1Preview() {
     LearnactivityappTheme {
-        Screen2Content()
+        Screen1Content()
     }
 }

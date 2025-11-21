@@ -7,11 +7,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.makak.learnactivityapp.ui.screens.screen1.Screen1
-import com.makak.learnactivityapp.ui.screens.screen2.Screen2
-import com.makak.learnactivityapp.ui.screens.screen3.Screen3
+import com.makak.learnactivityapp.ui.screens.sitesecimekran.Screen1
+import com.makak.learnactivityapp.ui.screens.aysecimekran.Screen2
+import com.makak.learnactivityapp.ui.screens.bloksecimekran.Screen3
+import com.makak.learnactivityapp.ui.screens.kisisecimekran.Screen4
+import com.makak.learnactivityapp.ui.screens.ödemeekran.Screen5
 import java.net.URLDecoder
-import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 @Composable
@@ -57,6 +58,61 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                 navController = navController,
                 siteName = siteName,
                 selectedMonth = selectedMonth
+            )
+        }
+
+        composable(
+            "screen4/{siteName}/{selectedMonth}/{selectedBlock}",
+            arguments = listOf(
+                navArgument("siteName") { type = NavType.StringType },
+                navArgument("selectedMonth") { type = NavType.StringType },
+                navArgument("selectedBlock") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val siteName = backStackEntry.arguments?.getString("siteName")?.let {
+                URLDecoder.decode(it, StandardCharsets.UTF_8.toString())
+            } ?: ""
+            val selectedMonth = backStackEntry.arguments?.getString("selectedMonth")?.let {
+                URLDecoder.decode(it, StandardCharsets.UTF_8.toString())
+            } ?: ""
+            val selectedBlock = backStackEntry.arguments?.getString("selectedBlock")?.let {
+                URLDecoder.decode(it, StandardCharsets.UTF_8.toString())
+            } ?: ""
+            Screen4(
+                navController = navController,
+                siteName = siteName,
+                selectedMonth = selectedMonth,
+                selectedBlock = selectedBlock
+            )
+        }
+
+        composable(
+            "screen5/{siteName}/{selectedMonth}/{selectedBlock}/{selectedPerson}",
+            arguments = listOf(
+                navArgument("siteName") { type = NavType.StringType },
+                navArgument("selectedMonth") { type = NavType.StringType },
+                navArgument("selectedBlock") { type = NavType.StringType },
+                navArgument("selectedPerson") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val siteName = backStackEntry.arguments?.getString("siteName")?.let {
+                URLDecoder.decode(it, StandardCharsets.UTF_8.toString())
+            } ?: ""
+            val selectedMonth = backStackEntry.arguments?.getString("selectedMonth")?.let {
+                URLDecoder.decode(it, StandardCharsets.UTF_8.toString())
+            } ?: ""
+            val selectedBlock = backStackEntry.arguments?.getString("selectedBlock")?.let {
+                URLDecoder.decode(it, StandardCharsets.UTF_8.toString())
+            } ?: ""
+            val selectedPerson = backStackEntry.arguments?.getString("selectedPerson")?.let {
+                URLDecoder.decode(it, StandardCharsets.UTF_8.toString())
+            } ?: ""
+            Screen5(
+                navController = navController,
+                siteName = siteName,
+                selectedMonth = selectedMonth,
+                selectedBlock = selectedBlock,
+                selectedPerson = selectedPerson
             )
         }
     }
