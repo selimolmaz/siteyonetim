@@ -1,6 +1,6 @@
 package com.makak.learnactivityapp.ui.screens.kisisecimekran
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -23,11 +24,13 @@ import com.makak.learnactivityapp.database.database.AppDatabase
 import com.makak.learnactivityapp.database.entities.Person
 import com.makak.learnactivityapp.database.entities.Block
 import com.makak.learnactivityapp.database.entities.Site
+import com.makak.learnactivityapp.database.entities.Month
 import com.makak.learnactivityapp.database.repository.PersonRepository
+import com.makak.learnactivityapp.database.repository.PaymentRepository
 import com.makak.learnactivityapp.database.repository.BlockRepository
+import com.makak.learnactivityapp.database.repository.MonthRepository
 import com.makak.learnactivityapp.database.repository.SiteRepository
 import com.makak.learnactivityapp.ui.theme.LearnactivityappTheme
-import com.makak.learnactivityapp.ui.screens.ödemeekran.PaymentMemory
 import kotlinx.coroutines.launch
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -36,7 +39,7 @@ import java.nio.charset.StandardCharsets
 fun KisiSecimEkrani(
     navController: NavController,
     siteName: String,
-    selectedMonth: String,
+    selectedMonthId: Long,
     selectedBlock: String
 ) {
     val context = LocalContext.current
@@ -45,45 +48,80 @@ fun KisiSecimEkrani(
     // Database setup
     val database = remember { AppDatabase.getDatabase(context) }
     val siteRepository = remember { SiteRepository(database.siteDao()) }
+    val monthRepository = remember { MonthRepository(database.monthDao()) }
     val blockRepository = remember { BlockRepository(database.blockDao()) }
     val personRepository = remember { PersonRepository(database.personDao()) }
+    val paymentRepository = remember { PaymentRepository(database.paymentDao()) }
 
     // State
     var site by remember { mutableStateOf<Site?>(null) }
+    var month by remember { mutableStateOf<Month?>(null) }
     var block by remember { mutableStateOf<Block?>(null) }
     var people by remember { mutableStateOf<List<Person>>(emptyList()) }
+    var peopleStatus by remember { mutableStateOf<Map<Long, Boolean>>(emptyMap()) }
     var showAddDialog by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
+    var selectedPersonForEdit by remember { mutableStateOf<Person?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    // Load site, block and people on first composition
-    LaunchedEffect(siteName, selectedMonth, selectedBlock) {
+    // Load site, month, block and people on first composition
+    LaunchedEffect(siteName, selectedMonthId, selectedBlock) {
         scope.launch {
             try {
+                println("🔍 KisiSecimEkrani Debug - MonthID: $selectedMonthId")
+
                 // Find site by name
                 val allSites = siteRepository.getAllSites()
                 val foundSite = allSites.find { it.name == siteName }
 
                 if (foundSite != null) {
                     site = foundSite
+                    println("✅ Site found: ${foundSite.name}")
 
-                    // Find block by site and name
-                    val siteBlocks = blockRepository.getBlocksBySiteId(foundSite.id)
-                    val foundBlock = siteBlocks.find { it.name == selectedBlock }
+                    // Find month by ID directly
+                    val foundMonth = monthRepository.getMonthById(selectedMonthId)
+                    println("🔍 Searching month with ID: $selectedMonthId")
+                    println("🔍 Found month: $foundMonth")
 
-                    if (foundBlock != null) {
-                        block = foundBlock
-                        // People are block-based!
-                        people = personRepository.getPeopleByBlockId(foundBlock.id)
+                    if (foundMonth != null) {
+                        month = foundMonth
+                        println("✅ Month found: ${foundMonth.name} (ID: ${foundMonth.id})")
+
+                        // Find block by site and name
+                        val siteBlocks = blockRepository.getBlocksBySiteId(foundSite.id)
+                        val foundBlock = siteBlocks.find { it.name == selectedBlock }
+
+                        if (foundBlock != null) {
+                            block = foundBlock
+                            // People are block-based!
+                            people = personRepository.getPeopleByBlockId(foundBlock.id)
+
+                            // Check payment status for each person in this month
+                            val statusMap = mutableMapOf<Long, Boolean>()
+                            people.forEach { person ->
+                                statusMap[person.id] = paymentRepository.isPaymentSaved(person.id, foundMonth.id)
+                            }
+                            peopleStatus = statusMap
+                        } else {
+                            errorMessage = "Blok bulunamadı"
+                            println("❌ Block not found: $selectedBlock")
+                        }
                     } else {
-                        errorMessage = "Blok bulunamadı"
+                        errorMessage = "Ay bulunamadı (ID: $selectedMonthId)"
+                        println("❌ Month not found with ID: $selectedMonthId")
+                        // Month bulunamazsa geri dön
+                        navController.popBackStack()
                     }
                 } else {
                     errorMessage = "Site bulunamadı"
+                    println("❌ Site not found: $siteName")
                 }
                 isLoading = false
             } catch (e: Exception) {
-                errorMessage = "Veriler yüklenirken hata oluştu"
+                errorMessage = "Veriler yüklenirken hata oluştu: ${e.message}"
+                println("❌ Exception in KisiSecimEkrani: ${e.message}")
+                e.printStackTrace()
                 isLoading = false
             }
         }
@@ -91,30 +129,42 @@ fun KisiSecimEkrani(
 
     KisiSecimEkraniContent(
         siteName = siteName,
-        selectedMonth = selectedMonth,
+        selectedMonth = month?.name ?: "",
         selectedBlock = selectedBlock,
         people = people,
+        peopleStatus = peopleStatus,
         isLoading = isLoading,
         errorMessage = errorMessage,
         onPersonSelected = { person ->
-            val encodedSiteName = URLEncoder.encode(siteName, StandardCharsets.UTF_8.toString())
-            val encodedMonth = URLEncoder.encode(selectedMonth, StandardCharsets.UTF_8.toString())
-            val encodedBlock = URLEncoder.encode(selectedBlock, StandardCharsets.UTF_8.toString())
-            val encodedPerson = URLEncoder.encode(person, StandardCharsets.UTF_8.toString())
-            navController.navigate("screen5/$encodedSiteName/$encodedMonth/$encodedBlock/$encodedPerson")
+            month?.let { monthData ->
+                println("🔍 KisiSecimEkrani - Selected person: ${person.name} (ID: ${person.id})")
+                val encodedSiteName = URLEncoder.encode(siteName, StandardCharsets.UTF_8.toString())
+                val encodedBlock = URLEncoder.encode(selectedBlock, StandardCharsets.UTF_8.toString())
+                val navigationRoute = "screen5/$encodedSiteName/${monthData.id}/$encodedBlock/${person.id}"
+                println("🔍 Navigation route: $navigationRoute")
+                navController.navigate(navigationRoute)
+            }
+        },
+        onPersonLongClick = { person ->
+            selectedPersonForEdit = person
+            showEditDialog = true
         },
         onAddPersonClick = { showAddDialog = true }
     )
 
     // Add Person Dialog
-    if (showAddDialog && block != null) {
+    if (showAddDialog && block != null && month != null) {
+        // Safe copies to avoid smart cast issues
+        val safeBlock = block!!
+        val safeMonth = month!!
+
         AddPersonDialog(
             onDismiss = { showAddDialog = false },
             onPersonAdd = { personName ->
                 scope.launch {
                     try {
                         // Check if person already exists in this block
-                        if (personRepository.isPersonNameExists(block!!.id, personName)) {
+                        if (personRepository.isPersonNameExists(safeBlock.id, personName)) {
                             errorMessage = "Bu kişi adı zaten mevcut"
                             showAddDialog = false
                             return@launch
@@ -122,19 +172,105 @@ fun KisiSecimEkrani(
 
                         // Add new person to block
                         val newPerson = Person(
-                            blockId = block!!.id,
+                            blockId = safeBlock.id,
                             name = personName
                         )
                         personRepository.insertPerson(newPerson)
 
-                        // Refresh people list
-                        people = personRepository.getPeopleByBlockId(block!!.id)
+                        // Refresh people list and status
+                        people = personRepository.getPeopleByBlockId(safeBlock.id)
+                        val statusMap = mutableMapOf<Long, Boolean>()
+                        people.forEach { person ->
+                            statusMap[person.id] = paymentRepository.isPaymentSaved(person.id, safeMonth.id)
+                        }
+                        peopleStatus = statusMap
                         showAddDialog = false
                         errorMessage = null
 
                     } catch (e: Exception) {
                         errorMessage = "Kişi eklenirken hata oluştu"
                         showAddDialog = false
+                    }
+                }
+            }
+        )
+    }
+
+    // Edit Person Dialog
+    if (showEditDialog && selectedPersonForEdit != null && block != null && month != null) {
+        // Safe copies to avoid smart cast issues
+        val safeBlock = block!!
+        val safeMonth = month!!
+
+        EditPersonDialog(
+            person = selectedPersonForEdit!!,
+            onDismiss = {
+                showEditDialog = false
+                selectedPersonForEdit = null
+            },
+            onPersonUpdate = { person, newName ->
+                scope.launch {
+                    try {
+                        // Check if new person name already exists in this block (excluding current person)
+                        if (personRepository.isPersonNameExistsForUpdate(safeBlock.id, newName, person.id)) {
+                            errorMessage = "Bu kişi adı zaten mevcut"
+                            showEditDialog = false
+                            selectedPersonForEdit = null
+                            return@launch
+                        }
+
+                        // Update person
+                        val updatedPerson = person.copy(name = newName)
+                        personRepository.updatePerson(updatedPerson)
+
+                        // Refresh people list and status
+                        people = personRepository.getPeopleByBlockId(safeBlock.id)
+                        val statusMap = mutableMapOf<Long, Boolean>()
+                        people.forEach { personItem ->
+                            statusMap[personItem.id] = paymentRepository.isPaymentSaved(personItem.id, safeMonth.id)
+                        }
+                        peopleStatus = statusMap
+                        showEditDialog = false
+                        selectedPersonForEdit = null
+                        errorMessage = null
+
+                    } catch (e: Exception) {
+                        errorMessage = "Kişi güncellenirken hata oluştu"
+                        showEditDialog = false
+                        selectedPersonForEdit = null
+                    }
+                }
+            },
+            onPersonDelete = { person ->
+                scope.launch {
+                    try {
+                        println("🗑️ Deleting person: ${person.name} (ID: ${person.id})")
+
+                        // Önce person'ı sil
+                        personRepository.deletePerson(person.id)
+                        println("✅ Person deleted successfully")
+
+                        // State'i tamamen yenile - bu critical!
+                        val refreshedPeople = personRepository.getPeopleByBlockId(safeBlock.id)
+                        println("🔄 Refreshed people count: ${refreshedPeople.size}")
+                        people = refreshedPeople
+
+                        // Status map'ini de tamamen yeniden oluştur
+                        val newStatusMap = mutableMapOf<Long, Boolean>()
+                        refreshedPeople.forEach { personItem ->
+                            newStatusMap[personItem.id] = paymentRepository.isPaymentSaved(personItem.id, safeMonth.id)
+                        }
+                        peopleStatus = newStatusMap
+
+                        showEditDialog = false
+                        selectedPersonForEdit = null
+                        errorMessage = null
+
+                    } catch (e: Exception) {
+                        println("❌ Error deleting person: ${e.message}")
+                        errorMessage = "Kişi silinirken hata oluştu: ${e.message}"
+                        showEditDialog = false
+                        selectedPersonForEdit = null
                     }
                 }
             }
@@ -156,9 +292,11 @@ fun KisiSecimEkraniContent(
     selectedMonth: String = "Kasım 2025",
     selectedBlock: String = "2B",
     people: List<Person> = emptyList(),
+    peopleStatus: Map<Long, Boolean> = emptyMap(),
     isLoading: Boolean = false,
     errorMessage: String? = null,
-    onPersonSelected: (String) -> Unit = {},
+    onPersonSelected: (Person) -> Unit = {},
+    onPersonLongClick: (Person) -> Unit = {},
     onAddPersonClick: () -> Unit = {}
 ) {
     Scaffold(
@@ -205,7 +343,7 @@ fun KisiSecimEkraniContent(
             )
 
             Text(
-                text = if (people.isEmpty() && !isLoading) "Kişi eklemek için + butonuna tıklayın" else "Kişi seçin",
+                text = if (people.isEmpty() && !isLoading) "Kişi eklemek için + butonuna tıklayın" else "Kişi seçin (uzun basarak düzenleyebilirsiniz)",
                 fontSize = 16.sp,
                 color = Color.Gray,
                 modifier = Modifier.padding(bottom = 16.dp)
@@ -241,14 +379,21 @@ fun KisiSecimEkraniContent(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(bottom = 12.dp)
                 ) {
-                    items(people) { person ->
-                        val paymentKey = "$siteName-$selectedMonth-$selectedBlock-${person.name}"
-                        val isSaved = PaymentMemory.isSaved(paymentKey)
+                    items(
+                        items = people,
+                        key = { person -> person.id } // Bu çok önemli!
+                    ) { person ->
+                        val isSaved = peopleStatus[person.id] ?: false
 
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onPersonSelected(person.name) },
+                                .pointerInput(Unit) {
+                                    detectTapGestures(
+                                        onTap = { onPersonSelected(person) },
+                                        onLongPress = { onPersonLongClick(person) }
+                                    )
+                                },
                             shape = RoundedCornerShape(8.dp),
                             colors = CardDefaults.cardColors(
                                 containerColor = if (isSaved) Color(0xFF4CAF50).copy(alpha = 0.2f) else Color.White
@@ -262,12 +407,19 @@ fun KisiSecimEkraniContent(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = person.name,
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Normal,
-                                    color = if (isSaved) Color(0xFF2E7D32) else Color.Black
-                                )
+                                Column {
+                                    Text(
+                                        text = person.name,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Normal,
+                                        color = if (isSaved) Color(0xFF2E7D32) else Color.Black
+                                    )
+                                    Text(
+                                        text = "Düzenlemek için uzun basın",
+                                        fontSize = 12.sp,
+                                        color = Color.Gray
+                                    )
+                                }
                                 Icon(
                                     imageVector = Icons.Default.KeyboardArrowRight,
                                     contentDescription = "Navigate",
@@ -291,10 +443,11 @@ fun KisiSecimEkraniPreview() {
             selectedMonth = "Kasım 2025",
             selectedBlock = "2B",
             people = listOf(
-                Person(1, 1, "Ali Yılmaz", 0),     // (id, blockId, name, createdAt)
+                Person(1, 1, "Ali Yılmaz", 0),
                 Person(2, 1, "Mehmet Demir", 0),
                 Person(3, 1, "Ayşe Kaya", 0)
-            )
+            ),
+            onPersonLongClick = {}
         )
     }
 }

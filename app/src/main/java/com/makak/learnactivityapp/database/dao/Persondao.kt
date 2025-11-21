@@ -11,6 +11,9 @@ interface PersonDao {
     @Query("SELECT * FROM people WHERE block_id = :blockId ORDER BY created_at ASC")
     suspend fun getPeopleByBlockId(blockId: Long): List<Person>
 
+    @Query("SELECT * FROM people WHERE id = :personId LIMIT 1")
+    suspend fun getPersonById(personId: Long): Person?
+
     @Query("SELECT * FROM people WHERE block_id = :blockId AND name = :personName LIMIT 1")
     suspend fun getPersonByBlockAndName(blockId: Long, personName: String): Person?
 

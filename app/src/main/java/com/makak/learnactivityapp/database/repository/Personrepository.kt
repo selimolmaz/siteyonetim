@@ -9,6 +9,10 @@ class PersonRepository(private val personDao: PersonDao) {
         return personDao.getPeopleByBlockId(blockId)
     }
 
+    suspend fun getPersonById(personId: Long): Person? {
+        return personDao.getPersonById(personId)
+    }
+
     suspend fun insertPerson(person: Person): Long {
         return personDao.insertPerson(person)
     }

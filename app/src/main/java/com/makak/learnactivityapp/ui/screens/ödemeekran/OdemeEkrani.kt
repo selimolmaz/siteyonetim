@@ -9,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -16,77 +17,181 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.makak.learnactivityapp.database.database.AppDatabase
+import com.makak.learnactivityapp.database.entities.Payment
+import com.makak.learnactivityapp.database.entities.Person
+import com.makak.learnactivityapp.database.entities.Month
+import com.makak.learnactivityapp.database.entities.Site
+import com.makak.learnactivityapp.database.repository.PaymentRepository
+import com.makak.learnactivityapp.database.repository.PersonRepository
+import com.makak.learnactivityapp.database.repository.MonthRepository
+import com.makak.learnactivityapp.database.repository.SiteRepository
 import com.makak.learnactivityapp.ui.theme.LearnactivityappTheme
-
-// Dummy hafıza sistemi
-object PaymentMemory {
-    private val payments = mutableMapOf<String, PaymentData>()
-
-    data class PaymentData(
-        val paidAmount: String = "",
-        val willPayAmount: String = "",
-        val isPaidEnabled: Boolean = false,
-        val isWillPayEnabled: Boolean = false
-    )
-
-    fun savePayment(key: String, data: PaymentData) {
-        payments[key] = data
-    }
-
-    fun removePayment(key: String) {
-        payments.remove(key)
-    }
-
-    fun getPayment(key: String): PaymentData? {
-        return payments[key]
-    }
-
-    fun isSaved(key: String): Boolean {
-        val payment = payments[key]
-        return if (payment != null) {
-            // Herhangi bir radio button aktif ve tutar girilmiş
-            (payment.isPaidEnabled && payment.paidAmount.isNotBlank() && payment.paidAmount != "0") ||
-                    (payment.isWillPayEnabled && payment.willPayAmount.isNotBlank() && payment.willPayAmount != "0")
-        } else {
-            false
-        }
-    }
-
-    // Blokta tüm kişiler durumları kaydedildi mi kontrol et
-    fun isBlockFullyPaid(siteName: String, selectedMonth: String, selectedBlock: String): Boolean {
-        val people = listOf("A kişisi", "B kişisi", "C kişisi") // Aynı liste Screen4'te olduğu gibi
-        return people.all { person ->
-            val paymentKey = "$siteName-$selectedMonth-$selectedBlock-$person"
-            isSaved(paymentKey)
-        }
-    }
-
-    // Ay tamamen tamamlandı mı kontrol et (tüm bloklar tamamlandı mı)
-    fun isMonthFullyPaid(siteName: String, selectedMonth: String): Boolean {
-        val blocks = listOf("1A", "2B", "3C", "4D", "5E") // Aynı liste Screen3'te olduğu gibi
-        return blocks.all { block ->
-            isBlockFullyPaid(siteName, selectedMonth, block)
-        }
-    }
-}
+import kotlinx.coroutines.launch
 
 @Composable
 fun OdemeEkrani(
     navController: NavController,
     siteName: String,
-    selectedMonth: String,
+    selectedMonthId: Long,
     selectedBlock: String,
-    selectedPerson: String
+    selectedPersonId: Long
 ) {
-    OdemeEkraniContent(
-        siteName = siteName,
-        selectedMonth = selectedMonth,
-        selectedBlock = selectedBlock,
-        selectedPerson = selectedPerson,
-        onSaveClick = {
-            navController.popBackStack()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    // Database setup
+    val database = remember { AppDatabase.getDatabase(context) }
+    val siteRepository = remember { SiteRepository(database.siteDao()) }
+    val monthRepository = remember { MonthRepository(database.monthDao()) }
+    val personRepository = remember { PersonRepository(database.personDao()) }
+    val paymentRepository = remember { PaymentRepository(database.paymentDao()) }
+
+    // State
+    var site by remember { mutableStateOf<Site?>(null) }
+    var month by remember { mutableStateOf<Month?>(null) }
+    var person by remember { mutableStateOf<Person?>(null) }
+    var currentPayment by remember { mutableStateOf<Payment?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    // Load site, month, and person data
+    LaunchedEffect(siteName, selectedMonthId, selectedBlock, selectedPersonId) {
+        scope.launch {
+            try {
+                println("🔍 OdemeEkrani Debug - MonthID: $selectedMonthId, PersonID: $selectedPersonId")
+
+                // Find site
+                val allSites = siteRepository.getAllSites()
+                val foundSite = allSites.find { it.name == siteName }
+
+                if (foundSite != null) {
+                    site = foundSite
+                    println("✅ Site found: ${foundSite.name}")
+
+                    // Find month by ID directly
+                    val foundMonth = monthRepository.getMonthById(selectedMonthId)
+                    println("🔍 Searching month with ID: $selectedMonthId")
+                    println("🔍 Found month: $foundMonth")
+
+                    if (foundMonth != null) {
+                        month = foundMonth
+                        println("✅ Month found: ${foundMonth.name} (ID: ${foundMonth.id})")
+
+                        // Find person by ID directly
+                        val foundPerson = personRepository.getPersonById(selectedPersonId)
+                        println("🔍 Searching person with ID: $selectedPersonId")
+                        println("🔍 Found person: $foundPerson")
+
+                        if (foundPerson != null) {
+                            person = foundPerson
+                            println("✅ Person found: ${foundPerson.name} (ID: ${foundPerson.id})")
+
+                            // Get existing payment
+                            currentPayment = paymentRepository.getPaymentByPersonAndMonth(
+                                foundPerson.id, foundMonth.id
+                            )
+                        } else {
+                            errorMessage = "Kişi bulunamadı (ID: $selectedPersonId)"
+                            println("❌ Person not found with ID: $selectedPersonId")
+                            // Person bulunamazsa geri dön
+                            navController.popBackStack()
+                        }
+                    } else {
+                        errorMessage = "Ay bulunamadı (ID: $selectedMonthId)"
+                        println("❌ Month not found with ID: $selectedMonthId")
+                        // Month bulunamazsa geri dön
+                        navController.popBackStack()
+                    }
+                } else {
+                    errorMessage = "Site bulunamadı"
+                    println("❌ Site not found: $siteName")
+                }
+                isLoading = false
+            } catch (e: Exception) {
+                errorMessage = "Veriler yüklenirken hata oluştu: ${e.message}"
+                println("❌ Exception in OdemeEkrani: ${e.message}")
+                e.printStackTrace()
+                isLoading = false
+            }
         }
-    )
+    }
+
+    if (isLoading) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+    } else if (errorMessage != null) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = errorMessage!!,
+                color = Color.Red,
+                style = MaterialTheme.typography.bodyLarge
+            )
+        }
+    } else if (site != null && month != null && person != null) {
+        // Safe copies to avoid smart cast issues
+        val safeMonth = month!!
+        val safePerson = person!!
+
+        OdemeEkraniContent(
+            siteName = siteName,
+            selectedMonth = safeMonth.name,
+            selectedBlock = selectedBlock,
+            selectedPersonName = safePerson.name,
+            existingPayment = currentPayment,
+            onSaveClick = { paidAmount, willPayAmount, isPaidEnabled, isWillPayEnabled ->
+                scope.launch {
+                    try {
+                        val newPayment = Payment(
+                            id = currentPayment?.id ?: 0,
+                            personId = safePerson.id,
+                            monthId = safeMonth.id,
+                            paidAmount = if (isPaidEnabled) paidAmount else "0",
+                            willPayAmount = if (isWillPayEnabled) willPayAmount else "0",
+                            isPaidEnabled = isPaidEnabled,
+                            isWillPayEnabled = isWillPayEnabled,
+                            updatedAt = System.currentTimeMillis()
+                        )
+
+                        paymentRepository.savePayment(newPayment)
+                        navController.popBackStack()
+                    } catch (e: Exception) {
+                        errorMessage = "Ödeme kaydedilirken hata oluştu: ${e.message}"
+                    }
+                }
+            },
+            onResetClick = {
+                if (currentPayment != null) {
+                    scope.launch {
+                        try {
+                            paymentRepository.removePaymentByPersonAndMonth(safePerson.id, safeMonth.id)
+                            currentPayment = null
+                        } catch (e: Exception) {
+                            errorMessage = "Ödeme silinirken hata oluştu: ${e.message}"
+                        }
+                    }
+                }
+            }
+        )
+    }
+
+    // Show error message if exists
+    errorMessage?.let { message ->
+        LaunchedEffect(message) {
+            kotlinx.coroutines.delay(3000)
+            errorMessage = null
+        }
+    }
 }
 
 @Composable
@@ -94,16 +199,23 @@ fun OdemeEkraniContent(
     siteName: String = "Nezihpark Sitesi",
     selectedMonth: String = "Kasım 2025",
     selectedBlock: String = "2B",
-    selectedPerson: String = "B Kişisi",
-    onSaveClick: () -> Unit = {}
+    selectedPersonName: String = "B Kişisi",
+    existingPayment: Payment? = null,
+    onSaveClick: (String, String, Boolean, Boolean) -> Unit = { _, _, _, _ -> },
+    onResetClick: () -> Unit = {}
 ) {
-    val paymentKey = "$siteName-$selectedMonth-$selectedBlock-$selectedPerson"
-    val existingPayment = PaymentMemory.getPayment(paymentKey)
-
     var paidAmount by remember { mutableStateOf(existingPayment?.paidAmount ?: "") }
     var willPayAmount by remember { mutableStateOf(existingPayment?.willPayAmount ?: "") }
     var isPaidEnabled by remember { mutableStateOf(existingPayment?.isPaidEnabled ?: false) }
     var isWillPayEnabled by remember { mutableStateOf(existingPayment?.isWillPayEnabled ?: false) }
+
+    // Reset state when existingPayment changes
+    LaunchedEffect(existingPayment) {
+        paidAmount = existingPayment?.paidAmount ?: ""
+        willPayAmount = existingPayment?.willPayAmount ?: ""
+        isPaidEnabled = existingPayment?.isPaidEnabled ?: false
+        isWillPayEnabled = existingPayment?.isWillPayEnabled ?: false
+    }
 
     // Number only filter function
     fun filterNumbers(text: String): String {
@@ -147,7 +259,7 @@ fun OdemeEkraniContent(
                 )
 
                 Text(
-                    text = selectedPerson,
+                    text = selectedPersonName,
                     fontSize = 16.sp,
                     color = Color.Black,
                     modifier = Modifier.padding(bottom = 32.dp)
@@ -155,12 +267,10 @@ fun OdemeEkraniContent(
             }
 
             // Sıfırla Button (sadece kayıtlı veri varsa göster)
-            val existingData = PaymentMemory.getPayment(paymentKey)
-            if (existingData != null) {
+            if (existingPayment != null) {
                 Button(
                     onClick = {
-                        // Veriyi hafızadan sil
-                        PaymentMemory.removePayment(paymentKey)
+                        onResetClick()
                         // State'leri sıfırla
                         paidAmount = ""
                         willPayAmount = ""
@@ -333,17 +443,7 @@ fun OdemeEkraniContent(
         // Kaydet Button
         Button(
             onClick = {
-                // Veriyi hafızaya kaydet
-                PaymentMemory.savePayment(
-                    paymentKey,
-                    PaymentMemory.PaymentData(
-                        paidAmount = if (isPaidEnabled) paidAmount else "0", // Seçilmezse 0
-                        willPayAmount = if (isWillPayEnabled) willPayAmount else "0", // Seçilmezse 0
-                        isPaidEnabled = isPaidEnabled,
-                        isWillPayEnabled = isWillPayEnabled
-                    )
-                )
-                onSaveClick()
+                onSaveClick(paidAmount, willPayAmount, isPaidEnabled, isWillPayEnabled)
             },
             modifier = Modifier
                 .fillMaxWidth()

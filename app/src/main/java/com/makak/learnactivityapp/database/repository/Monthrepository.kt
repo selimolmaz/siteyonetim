@@ -9,6 +9,10 @@ class MonthRepository(private val monthDao: MonthDao) {
         return monthDao.getMonthsBySiteId(siteId)
     }
 
+    suspend fun getMonthById(monthId: Long): Month? {
+        return monthDao.getMonthById(monthId)
+    }
+
     suspend fun insertMonth(month: Month): Long {
         return monthDao.insertMonth(month)
     }

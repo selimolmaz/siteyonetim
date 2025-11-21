@@ -11,6 +11,9 @@ interface MonthDao {
     @Query("SELECT * FROM months WHERE site_id = :siteId ORDER BY year DESC, month_number DESC")
     suspend fun getMonthsBySiteId(siteId: Long): List<Month>
 
+    @Query("SELECT * FROM months WHERE id = :monthId LIMIT 1")
+    suspend fun getMonthById(monthId: Long): Month?
+
     @Query("SELECT * FROM months WHERE site_id = :siteId AND name = :monthName LIMIT 1")
     suspend fun getMonthBySiteAndName(siteId: Long, monthName: String): Month?
 

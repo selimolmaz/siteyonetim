@@ -8,14 +8,16 @@ import com.makak.learnactivityapp.database.entities.Site
 import com.makak.learnactivityapp.database.entities.Month
 import com.makak.learnactivityapp.database.entities.Block
 import com.makak.learnactivityapp.database.entities.Person
+import com.makak.learnactivityapp.database.entities.Payment
 import com.makak.learnactivityapp.database.dao.SiteDao
 import com.makak.learnactivityapp.database.dao.MonthDao
 import com.makak.learnactivityapp.database.dao.BlockDao
 import com.makak.learnactivityapp.database.dao.PersonDao
+import com.makak.learnactivityapp.database.dao.PaymentDao
 
 @Database(
-    entities = [Site::class, Month::class, Block::class, Person::class],
-    version = 5,
+    entities = [Site::class, Month::class, Block::class, Person::class, Payment::class],
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -23,6 +25,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun monthDao(): MonthDao
     abstract fun blockDao(): BlockDao
     abstract fun personDao(): PersonDao
+    abstract fun paymentDao(): PaymentDao
 
     companion object {
         @Volatile

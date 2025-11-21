@@ -42,77 +42,69 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         }
 
         composable(
-            "screen3/{siteName}/{selectedMonth}",
+            "screen3/{siteName}/{selectedMonthId}",
             arguments = listOf(
                 navArgument("siteName") { type = NavType.StringType },
-                navArgument("selectedMonth") { type = NavType.StringType }
+                navArgument("selectedMonthId") { type = NavType.LongType }
             )
         ) { backStackEntry ->
             val siteName = backStackEntry.arguments?.getString("siteName")?.let {
                 URLDecoder.decode(it, StandardCharsets.UTF_8.toString())
             } ?: ""
-            val selectedMonth = backStackEntry.arguments?.getString("selectedMonth")?.let {
-                URLDecoder.decode(it, StandardCharsets.UTF_8.toString())
-            } ?: ""
+            val selectedMonthId = backStackEntry.arguments?.getLong("selectedMonthId") ?: 0L
             BlokSecimEkrani(
                 navController = navController,
                 siteName = siteName,
-                selectedMonth = selectedMonth
+                selectedMonthId = selectedMonthId
             )
         }
 
         composable(
-            "screen4/{siteName}/{selectedMonth}/{selectedBlock}",
+            "screen4/{siteName}/{selectedMonthId}/{selectedBlock}",
             arguments = listOf(
                 navArgument("siteName") { type = NavType.StringType },
-                navArgument("selectedMonth") { type = NavType.StringType },
+                navArgument("selectedMonthId") { type = NavType.LongType },
                 navArgument("selectedBlock") { type = NavType.StringType }
             )
         ) { backStackEntry ->
             val siteName = backStackEntry.arguments?.getString("siteName")?.let {
                 URLDecoder.decode(it, StandardCharsets.UTF_8.toString())
             } ?: ""
-            val selectedMonth = backStackEntry.arguments?.getString("selectedMonth")?.let {
-                URLDecoder.decode(it, StandardCharsets.UTF_8.toString())
-            } ?: ""
+            val selectedMonthId = backStackEntry.arguments?.getLong("selectedMonthId") ?: 0L
             val selectedBlock = backStackEntry.arguments?.getString("selectedBlock")?.let {
                 URLDecoder.decode(it, StandardCharsets.UTF_8.toString())
             } ?: ""
             KisiSecimEkrani(
                 navController = navController,
                 siteName = siteName,
-                selectedMonth = selectedMonth,
+                selectedMonthId = selectedMonthId,
                 selectedBlock = selectedBlock
             )
         }
 
         composable(
-            "screen5/{siteName}/{selectedMonth}/{selectedBlock}/{selectedPerson}",
+            "screen5/{siteName}/{selectedMonthId}/{selectedBlock}/{selectedPersonId}",
             arguments = listOf(
                 navArgument("siteName") { type = NavType.StringType },
-                navArgument("selectedMonth") { type = NavType.StringType },
+                navArgument("selectedMonthId") { type = NavType.LongType },
                 navArgument("selectedBlock") { type = NavType.StringType },
-                navArgument("selectedPerson") { type = NavType.StringType }
+                navArgument("selectedPersonId") { type = NavType.LongType }
             )
         ) { backStackEntry ->
             val siteName = backStackEntry.arguments?.getString("siteName")?.let {
                 URLDecoder.decode(it, StandardCharsets.UTF_8.toString())
             } ?: ""
-            val selectedMonth = backStackEntry.arguments?.getString("selectedMonth")?.let {
-                URLDecoder.decode(it, StandardCharsets.UTF_8.toString())
-            } ?: ""
+            val selectedMonthId = backStackEntry.arguments?.getLong("selectedMonthId") ?: 0L
             val selectedBlock = backStackEntry.arguments?.getString("selectedBlock")?.let {
                 URLDecoder.decode(it, StandardCharsets.UTF_8.toString())
             } ?: ""
-            val selectedPerson = backStackEntry.arguments?.getString("selectedPerson")?.let {
-                URLDecoder.decode(it, StandardCharsets.UTF_8.toString())
-            } ?: ""
+            val selectedPersonId = backStackEntry.arguments?.getLong("selectedPersonId") ?: 0L
             OdemeEkrani(
                 navController = navController,
                 siteName = siteName,
-                selectedMonth = selectedMonth,
+                selectedMonthId = selectedMonthId,
                 selectedBlock = selectedBlock,
-                selectedPerson = selectedPerson
+                selectedPersonId = selectedPersonId
             )
         }
     }
