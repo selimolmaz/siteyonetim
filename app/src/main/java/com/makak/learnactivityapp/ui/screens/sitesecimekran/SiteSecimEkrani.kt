@@ -22,8 +22,8 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 @Composable
-fun Screen1(navController: NavController) {
-    Screen1Content(
+fun SiteSecimEkrani(navController: NavController) {
+    SiteSecimEkraniContent(
         onItemClick = { siteName ->
             val encodedSiteName = URLEncoder.encode(siteName, StandardCharsets.UTF_8.toString())
             navController.navigate("screen2/$encodedSiteName")
@@ -32,7 +32,7 @@ fun Screen1(navController: NavController) {
 }
 
 @Composable
-fun Screen1Content(
+fun SiteSecimEkraniContent(
     onItemClick: (String) -> Unit = {}
 ) {
     val sites = listOf("Nezihpark Sitesi")
@@ -97,8 +97,8 @@ fun Screen1Content(
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
-fun Screen1Preview() {
+fun SiteSecimEkraniPreview() {
     LearnactivityappTheme {
-        Screen1Content()
+        SiteSecimEkraniContent()
     }
 }

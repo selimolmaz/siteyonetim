@@ -23,12 +23,12 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 @Composable
-fun Screen3(
+fun BlokSecimEkrani(
     navController: NavController,
     siteName: String,
     selectedMonth: String
 ) {
-    Screen3Content(
+    BlokSecimEkraniContent(
         siteName = siteName,
         selectedMonth = selectedMonth,
         onNavigateBack = { navController.popBackStack() },
@@ -42,7 +42,7 @@ fun Screen3(
 }
 
 @Composable
-fun Screen3Content(
+fun BlokSecimEkraniContent(
     siteName: String = "Nezihpark Sitesi",
     selectedMonth: String = "Ekim 2025",
     onNavigateBack: () -> Unit = {},
@@ -122,8 +122,8 @@ fun Screen3Content(
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
-fun Screen3Preview() {
+fun BlokSecimEkraniPreview() {
     LearnactivityappTheme {
-        Screen3Content()
+        BlokSecimEkraniContent()
     }
 }

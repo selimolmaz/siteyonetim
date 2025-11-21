@@ -71,14 +71,14 @@ object PaymentMemory {
 }
 
 @Composable
-fun Screen5(
+fun OdemeEkrani(
     navController: NavController,
     siteName: String,
     selectedMonth: String,
     selectedBlock: String,
     selectedPerson: String
 ) {
-    Screen5Content(
+    OdemeEkraniContent(
         siteName = siteName,
         selectedMonth = selectedMonth,
         selectedBlock = selectedBlock,
@@ -90,7 +90,7 @@ fun Screen5(
 }
 
 @Composable
-fun Screen5Content(
+fun OdemeEkraniContent(
     siteName: String = "Nezihpark Sitesi",
     selectedMonth: String = "Kasım 2025",
     selectedBlock: String = "2B",
@@ -361,8 +361,8 @@ fun Screen5Content(
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
-fun Screen5Preview() {
+fun OdemeEkraniPreview() {
     LearnactivityappTheme {
-        Screen5Content()
+        OdemeEkraniContent()
     }
 }

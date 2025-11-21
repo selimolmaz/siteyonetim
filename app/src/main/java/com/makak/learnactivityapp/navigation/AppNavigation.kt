@@ -7,11 +7,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.makak.learnactivityapp.ui.screens.sitesecimekran.Screen1
-import com.makak.learnactivityapp.ui.screens.aysecimekran.Screen2
-import com.makak.learnactivityapp.ui.screens.bloksecimekran.Screen3
-import com.makak.learnactivityapp.ui.screens.kisisecimekran.Screen4
-import com.makak.learnactivityapp.ui.screens.ödemeekran.Screen5
+import com.makak.learnactivityapp.ui.screens.sitesecimekran.SiteSecimEkrani
+import com.makak.learnactivityapp.ui.screens.aysecimekran.AySecimEkrani
+import com.makak.learnactivityapp.ui.screens.bloksecimekran.BlokSecimEkrani
+import com.makak.learnactivityapp.ui.screens.kisisecimekran.KisiSecimEkrani
+import com.makak.learnactivityapp.ui.screens.ödemeekran.OdemeEkrani
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 
@@ -25,7 +25,7 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         modifier = modifier
     ) {
         composable("screen1") {
-            Screen1(navController = navController)
+            SiteSecimEkrani(navController = navController)
         }
 
         composable(
@@ -35,7 +35,7 @@ fun AppNavigation(modifier: Modifier = Modifier) {
             val siteName = backStackEntry.arguments?.getString("siteName")?.let {
                 URLDecoder.decode(it, StandardCharsets.UTF_8.toString())
             } ?: ""
-            Screen2(
+            AySecimEkrani(
                 navController = navController,
                 siteName = siteName
             )
@@ -54,7 +54,7 @@ fun AppNavigation(modifier: Modifier = Modifier) {
             val selectedMonth = backStackEntry.arguments?.getString("selectedMonth")?.let {
                 URLDecoder.decode(it, StandardCharsets.UTF_8.toString())
             } ?: ""
-            Screen3(
+            BlokSecimEkrani(
                 navController = navController,
                 siteName = siteName,
                 selectedMonth = selectedMonth
@@ -78,7 +78,7 @@ fun AppNavigation(modifier: Modifier = Modifier) {
             val selectedBlock = backStackEntry.arguments?.getString("selectedBlock")?.let {
                 URLDecoder.decode(it, StandardCharsets.UTF_8.toString())
             } ?: ""
-            Screen4(
+            KisiSecimEkrani(
                 navController = navController,
                 siteName = siteName,
                 selectedMonth = selectedMonth,
@@ -107,7 +107,7 @@ fun AppNavigation(modifier: Modifier = Modifier) {
             val selectedPerson = backStackEntry.arguments?.getString("selectedPerson")?.let {
                 URLDecoder.decode(it, StandardCharsets.UTF_8.toString())
             } ?: ""
-            Screen5(
+            OdemeEkrani(
                 navController = navController,
                 siteName = siteName,
                 selectedMonth = selectedMonth,

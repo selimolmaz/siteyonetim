@@ -23,13 +23,13 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 @Composable
-fun Screen4(
+fun KisiSecimEkrani(
     navController: NavController,
     siteName: String,
     selectedMonth: String,
     selectedBlock: String
 ) {
-    Screen4Content(
+    KisiSecimEkraniContent(
         siteName = siteName,
         selectedMonth = selectedMonth,
         selectedBlock = selectedBlock,
@@ -45,7 +45,7 @@ fun Screen4(
 }
 
 @Composable
-fun Screen4Content(
+fun KisiSecimEkraniContent(
     siteName: String = "Nezihpark Sitesi",
     selectedMonth: String = "Kasım 2025",
     selectedBlock: String = "2B",
@@ -134,9 +134,9 @@ fun Screen4Content(
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
-fun Screen4Preview() {
+fun KisiSecimEkraniPreview() {
     LearnactivityappTheme {
-        Screen4Content(
+        KisiSecimEkraniContent(
             siteName = "Nezihpark Sitesi",
             selectedMonth = "Kasım 2025",
             selectedBlock = "2B"
