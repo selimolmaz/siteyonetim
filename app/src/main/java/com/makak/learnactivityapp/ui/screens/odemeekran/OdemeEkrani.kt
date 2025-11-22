@@ -1,4 +1,4 @@
-package com.makak.learnactivityapp.ui.screens.ödemeekran
+package com.makak.learnactivityapp.ui.screens.odemeekran
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -9,25 +9,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.makak.learnactivityapp.database.database.AppDatabase
-import com.makak.learnactivityapp.database.entities.Payment
-import com.makak.learnactivityapp.database.entities.Person
-import com.makak.learnactivityapp.database.entities.Month
-import com.makak.learnactivityapp.database.entities.Site
-import com.makak.learnactivityapp.database.repository.PaymentRepository
-import com.makak.learnactivityapp.database.repository.PersonRepository
-import com.makak.learnactivityapp.database.repository.MonthRepository
-import com.makak.learnactivityapp.database.repository.SiteRepository
+import androidx.navigation.compose.rememberNavController
+import com.makak.learnactivityapp.ui.screens.odemeekran.viewmodel.OdemeViewModel
 import com.makak.learnactivityapp.ui.theme.LearnactivityappTheme
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 @Composable
 fun OdemeEkrani(
@@ -35,96 +29,19 @@ fun OdemeEkrani(
     siteName: String,
     selectedMonthId: Long,
     selectedBlock: String,
-    selectedPersonId: Long
+    selectedPersonId: Long,
+    viewModel: OdemeViewModel = hiltViewModel()
 ) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    // Database setup
-    val database = remember { AppDatabase.getDatabase(context) }
-    val siteRepository = remember { SiteRepository(database.siteDao()) }
-    val monthRepository = remember { MonthRepository(database.monthDao()) }
-    val personRepository = remember { PersonRepository(database.personDao()) }
-    val paymentRepository = remember { PaymentRepository(database.paymentDao()) }
-
-    // State
-    var site by remember { mutableStateOf<Site?>(null) }
-    var month by remember { mutableStateOf<Month?>(null) }
-    var person by remember { mutableStateOf<Person?>(null) }
-    var currentPayment by remember { mutableStateOf<Payment?>(null) }
-    var isLoading by remember { mutableStateOf(true) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-
-    // Load site, month, and person data
-    LaunchedEffect(siteName, selectedMonthId, selectedBlock, selectedPersonId) {
-        scope.launch {
-            try {
-                println("🔍 OdemeEkrani Debug - MonthID: $selectedMonthId, PersonID: $selectedPersonId")
-
-                // Find site
-                val allSites = siteRepository.getAllSites()
-                val foundSite = allSites.find { it.name == siteName }
-
-                if (foundSite != null) {
-                    site = foundSite
-                    println("✅ Site found: ${foundSite.name}")
-
-                    // Find month by ID directly
-                    val foundMonth = monthRepository.getMonthById(selectedMonthId)
-                    println("🔍 Searching month with ID: $selectedMonthId")
-                    println("🔍 Found month: $foundMonth")
-
-                    if (foundMonth != null) {
-                        month = foundMonth
-                        println("✅ Month found: ${foundMonth.name} (ID: ${foundMonth.id})")
-
-                        // Find person by ID directly
-                        val foundPerson = personRepository.getPersonById(selectedPersonId)
-                        println("🔍 Searching person with ID: $selectedPersonId")
-                        println("🔍 Found person: $foundPerson")
-
-                        if (foundPerson != null) {
-                            person = foundPerson
-                            println("✅ Person found: ${foundPerson.name} (ID: ${foundPerson.id})")
-
-                            // Get existing payment
-                            currentPayment = paymentRepository.getPaymentByPersonAndMonth(
-                                foundPerson.id, foundMonth.id
-                            )
-                        } else {
-                            errorMessage = "Kişi bulunamadı (ID: $selectedPersonId)"
-                            println("❌ Person not found with ID: $selectedPersonId")
-                            // Person bulunamazsa geri dön
-                            navController.popBackStack()
-                        }
-                    } else {
-                        errorMessage = "Ay bulunamadı (ID: $selectedMonthId)"
-                        println("❌ Month not found with ID: $selectedMonthId")
-                        // Month bulunamazsa geri dön
-                        navController.popBackStack()
-                    }
-                } else {
-                    errorMessage = "Site bulunamadı"
-                    println("❌ Site not found: $siteName")
-                }
-                isLoading = false
-            } catch (e: Exception) {
-                errorMessage = "Veriler yüklenirken hata oluştu: ${e.message}"
-                println("❌ Exception in OdemeEkrani: ${e.message}")
-                e.printStackTrace()
-                isLoading = false
-            }
-        }
-    }
-
-    if (isLoading) {
+    if (uiState.isLoading) {
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
             CircularProgressIndicator()
         }
-    } else if (errorMessage != null) {
+    } else if (uiState.errorMessage != null) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -133,63 +50,33 @@ fun OdemeEkrani(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = errorMessage!!,
+                text = uiState.errorMessage!!,
                 color = Color.Red,
                 style = MaterialTheme.typography.bodyLarge
             )
         }
-    } else if (site != null && month != null && person != null) {
-        // Safe copies to avoid smart cast issues
-        val safeMonth = month!!
-        val safePerson = person!!
-
+    } else if (uiState.site != null && uiState.month != null && uiState.person != null) {
         OdemeEkraniContent(
             siteName = siteName,
-            selectedMonth = safeMonth.name,
+            selectedMonth = uiState.month!!.name,
             selectedBlock = selectedBlock,
-            selectedPersonName = safePerson.name,
-            existingPayment = currentPayment,
+            selectedPersonName = uiState.person!!.name,
+            existingPayment = uiState.currentPayment,
             onSaveClick = { paidAmount, willPayAmount, isPaidEnabled, isWillPayEnabled ->
-                scope.launch {
-                    try {
-                        val newPayment = Payment(
-                            id = currentPayment?.id ?: 0,
-                            personId = safePerson.id,
-                            monthId = safeMonth.id,
-                            paidAmount = if (isPaidEnabled) paidAmount else "0",
-                            willPayAmount = if (isWillPayEnabled) willPayAmount else "0",
-                            isPaidEnabled = isPaidEnabled,
-                            isWillPayEnabled = isWillPayEnabled,
-                            updatedAt = System.currentTimeMillis()
-                        )
-
-                        paymentRepository.savePayment(newPayment)
-                        navController.popBackStack()
-                    } catch (e: Exception) {
-                        errorMessage = "Ödeme kaydedilirken hata oluştu: ${e.message}"
-                    }
-                }
+                viewModel.savePayment(paidAmount, willPayAmount, isPaidEnabled, isWillPayEnabled)
+                navController.popBackStack()
             },
             onResetClick = {
-                if (currentPayment != null) {
-                    scope.launch {
-                        try {
-                            paymentRepository.removePaymentByPersonAndMonth(safePerson.id, safeMonth.id)
-                            currentPayment = null
-                        } catch (e: Exception) {
-                            errorMessage = "Ödeme silinirken hata oluştu: ${e.message}"
-                        }
-                    }
-                }
+                viewModel.resetPayment()
             }
         )
     }
 
-    // Show error message if exists
-    errorMessage?.let { message ->
-        LaunchedEffect(message) {
-            kotlinx.coroutines.delay(3000)
-            errorMessage = null
+    // Auto-clear error after 3 seconds
+    LaunchedEffect(uiState.errorMessage) {
+        uiState.errorMessage?.let {
+            delay(3000)
+            viewModel.clearError()
         }
     }
 }
@@ -200,7 +87,7 @@ fun OdemeEkraniContent(
     selectedMonth: String = "Kasım 2025",
     selectedBlock: String = "2B",
     selectedPersonName: String = "B Kişisi",
-    existingPayment: Payment? = null,
+    existingPayment: com.makak.learnactivityapp.database.entities.Payment? = null,
     onSaveClick: (String, String, Boolean, Boolean) -> Unit = { _, _, _, _ -> },
     onResetClick: () -> Unit = {}
 ) {
@@ -449,7 +336,7 @@ fun OdemeEkraniContent(
                 .fillMaxWidth()
                 .height(48.dp),
             shape = RoundedCornerShape(8.dp),
-            enabled = isPaidEnabled || isWillPayEnabled // Sadece radio button seçimi yeterli
+            enabled = isPaidEnabled || isWillPayEnabled
         ) {
             Text(
                 text = "Kaydet",

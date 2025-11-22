@@ -14,54 +14,35 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.makak.learnactivityapp.database.database.AppDatabase
+import androidx.navigation.compose.rememberNavController
 import com.makak.learnactivityapp.database.entities.Site
-import com.makak.learnactivityapp.database.repository.SiteRepository
+import com.makak.learnactivityapp.ui.screens.sitesecimekran.viewmodel.SiteViewModel
 import com.makak.learnactivityapp.ui.theme.LearnactivityappTheme
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 @Composable
-fun SiteSecimEkrani(navController: NavController) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-
-    // Database setup
-    val database = remember { AppDatabase.getDatabase(context) }
-    val repository = remember { SiteRepository(database.siteDao()) }
-
-    // State
-    var sites by remember { mutableStateOf<List<Site>>(emptyList()) }
+fun SiteSecimEkrani(
+    navController: NavController,
+    viewModel: SiteViewModel = hiltViewModel()
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showAddDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
     var selectedSiteForEdit by remember { mutableStateOf<Site?>(null) }
-    var isLoading by remember { mutableStateOf(true) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-
-    // Load sites on first composition
-    LaunchedEffect(Unit) {
-        scope.launch {
-            try {
-                sites = repository.getAllSites()
-                isLoading = false
-            } catch (e: Exception) {
-                errorMessage = "Site listesi yüklenirken hata oluştu"
-                isLoading = false
-            }
-        }
-    }
 
     SiteSecimEkraniContent(
-        sites = sites,
-        isLoading = isLoading,
-        errorMessage = errorMessage,
+        sites = uiState.sites,
+        isLoading = uiState.isLoading,
+        errorMessage = uiState.errorMessage,
         onItemClick = { siteName ->
             val encodedSiteName = URLEncoder.encode(siteName, StandardCharsets.UTF_8.toString())
             navController.navigate("screen2/$encodedSiteName")
@@ -78,96 +59,40 @@ fun SiteSecimEkrani(navController: NavController) {
         AddSiteDialog(
             onDismiss = { showAddDialog = false },
             onSiteAdd = { siteName ->
-                scope.launch {
-                    try {
-                        // Check if site name already exists
-                        if (repository.isSiteNameExists(siteName)) {
-                            errorMessage = "Bu site adı zaten mevcut"
-                            showAddDialog = false
-                            return@launch
-                        }
-
-                        // Add new site
-                        val newSite = Site(name = siteName)
-                        repository.insertSite(newSite)
-
-                        // Refresh sites list
-                        sites = repository.getAllSites()
-                        showAddDialog = false
-                        errorMessage = null
-
-                    } catch (e: Exception) {
-                        errorMessage = "Site eklenirken hata oluştu"
-                        showAddDialog = false
-                    }
-                }
+                viewModel.addSite(siteName)
+                showAddDialog = false
             }
         )
     }
 
     // Edit Site Dialog
-    if (showEditDialog && selectedSiteForEdit != null) {
-        EditSiteDialog(
-            site = selectedSiteForEdit!!,
-            onDismiss = {
-                showEditDialog = false
-                selectedSiteForEdit = null
-            },
-            onSiteUpdate = { site, newName ->
-                scope.launch {
-                    try {
-                        // Check if new site name already exists (excluding current site)
-                        if (repository.isSiteNameExistsForUpdate(newName, site.id)) {
-                            errorMessage = "Bu site adı zaten mevcut"
-                            showEditDialog = false
-                            selectedSiteForEdit = null
-                            return@launch
-                        }
-
-                        // Update site
-                        val updatedSite = site.copy(name = newName)
-                        repository.updateSite(updatedSite)
-
-                        // Refresh sites list
-                        sites = repository.getAllSites()
-                        showEditDialog = false
-                        selectedSiteForEdit = null
-                        errorMessage = null
-
-                    } catch (e: Exception) {
-                        errorMessage = "Site güncellenirken hata oluştu"
-                        showEditDialog = false
-                        selectedSiteForEdit = null
-                    }
+    selectedSiteForEdit?.let { site ->
+        if (showEditDialog) {
+            EditSiteDialog(
+                site = site,
+                onDismiss = {
+                    showEditDialog = false
+                    selectedSiteForEdit = null
+                },
+                onSiteUpdate = { site, newName ->
+                    viewModel.updateSite(site, newName)
+                    showEditDialog = false
+                    selectedSiteForEdit = null
+                },
+                onSiteDelete = { site ->
+                    viewModel.deleteSite(site.id)
+                    showEditDialog = false
+                    selectedSiteForEdit = null
                 }
-            },
-            onSiteDelete = { site ->
-                scope.launch {
-                    try {
-                        repository.deleteSite(site.id)
-
-                        // Refresh sites list
-                        sites = repository.getAllSites()
-                        showEditDialog = false
-                        selectedSiteForEdit = null
-                        errorMessage = null
-
-                    } catch (e: Exception) {
-                        errorMessage = "Site silinirken hata oluştu"
-                        showEditDialog = false
-                        selectedSiteForEdit = null
-                    }
-                }
-            }
-        )
+            )
+        }
     }
 
-    // Show error message if exists
-    errorMessage?.let { message ->
-        LaunchedEffect(message) {
-            // Clear error message after 3 seconds
-            kotlinx.coroutines.delay(3000)
-            errorMessage = null
+    // Auto-clear error after 3 seconds
+    LaunchedEffect(uiState.errorMessage) {
+        uiState.errorMessage?.let {
+            delay(3000)
+            viewModel.clearError()
         }
     }
 }
@@ -301,8 +226,7 @@ fun SiteSecimEkraniPreview() {
             sites = listOf(
                 Site(1, "Nezihpark Sitesi", 0),
                 Site(2, "Bahçeşehir Sitesi", 0)
-            ),
-            onItemLongClick = {}
+            )
         )
     }
 }

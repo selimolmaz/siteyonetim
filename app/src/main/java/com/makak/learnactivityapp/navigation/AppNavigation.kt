@@ -11,7 +11,7 @@ import com.makak.learnactivityapp.ui.screens.sitesecimekran.SiteSecimEkrani
 import com.makak.learnactivityapp.ui.screens.aysecimekran.AySecimEkrani
 import com.makak.learnactivityapp.ui.screens.bloksecimekran.BlokSecimEkrani
 import com.makak.learnactivityapp.ui.screens.kisisecimekran.KisiSecimEkrani
-import com.makak.learnactivityapp.ui.screens.ödemeekran.OdemeEkrani
+import com.makak.learnactivityapp.ui.screens.odemeekran.OdemeEkrani
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 

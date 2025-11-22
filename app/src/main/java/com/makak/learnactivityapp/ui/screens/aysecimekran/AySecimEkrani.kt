@@ -14,87 +14,41 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.makak.learnactivityapp.database.database.AppDatabase
+import androidx.navigation.compose.rememberNavController
 import com.makak.learnactivityapp.database.entities.Month
-import com.makak.learnactivityapp.database.entities.Site
-import com.makak.learnactivityapp.database.repository.MonthRepository
-import com.makak.learnactivityapp.database.repository.PaymentRepository
-import com.makak.learnactivityapp.database.repository.SiteRepository
+import com.makak.learnactivityapp.ui.screens.aysecimekran.viewmodel.AySecimViewModel
 import com.makak.learnactivityapp.ui.theme.LearnactivityappTheme
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 @Composable
 fun AySecimEkrani(
     navController: NavController,
-    siteName: String = "Nezihpark Sitesi"
+    siteName: String = "Nezihpark Sitesi",
+    viewModel: AySecimViewModel = hiltViewModel()
 ) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-
-    // Database setup
-    val database = remember { AppDatabase.getDatabase(context) }
-    val siteRepository = remember { SiteRepository(database.siteDao()) }
-    val monthRepository = remember { MonthRepository(database.monthDao()) }
-    val paymentRepository = remember { PaymentRepository(database.paymentDao()) }
-
-    // State
-    var site by remember { mutableStateOf<Site?>(null) }
-    var months by remember { mutableStateOf<List<Month>>(emptyList()) }
-    var monthsStatus by remember { mutableStateOf<Map<Long, Boolean>>(emptyMap()) }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showAddDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
     var selectedMonthForEdit by remember { mutableStateOf<Month?>(null) }
-    var isLoading by remember { mutableStateOf(true) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-
-    // Load site and months on first composition
-    LaunchedEffect(siteName) {
-        scope.launch {
-            try {
-                // Find site by name
-                val allSites = siteRepository.getAllSites()
-                val foundSite = allSites.find { it.name == siteName }
-
-                if (foundSite != null) {
-                    site = foundSite
-                    months = monthRepository.getMonthsBySiteId(foundSite.id)
-
-                    // Check payment status for each month
-                    val statusMap = mutableMapOf<Long, Boolean>()
-                    months.forEach { month ->
-                        statusMap[month.id] = paymentRepository.isMonthFullyPaidInSite(foundSite.id, month.id)
-                    }
-                    monthsStatus = statusMap
-                } else {
-                    errorMessage = "Site bulunamadı"
-                }
-                isLoading = false
-            } catch (e: Exception) {
-                errorMessage = "Veriler yüklenirken hata oluştu"
-                isLoading = false
-            }
-        }
-    }
 
     AySecimEkraniContent(
         siteName = siteName,
-        months = months,
-        monthsStatus = monthsStatus,
-        isLoading = isLoading,
-        errorMessage = errorMessage,
+        months = uiState.months,
+        monthsStatus = uiState.monthsStatus,
+        isLoading = uiState.isLoading,
+        errorMessage = uiState.errorMessage,
         onItemClick = { month ->
-            println("🔍 AySecimEkrani - Selected month: ${month.name} (ID: ${month.id})")
             val encodedSiteName = URLEncoder.encode(siteName, StandardCharsets.UTF_8.toString())
             val navigationRoute = "screen3/$encodedSiteName/${month.id}"
-            println("🔍 Navigation route: $navigationRoute")
             navController.navigate(navigationRoute)
         },
         onMonthLongClick = { month ->
@@ -105,133 +59,44 @@ fun AySecimEkrani(
     )
 
     // Add Month Dialog
-    if (showAddDialog && site != null) {
-        // Safe copy to avoid smart cast issues
-        val safeSite = site!!
-
+    if (showAddDialog) {
         AddMonthDialog(
             onDismiss = { showAddDialog = false },
             onMonthAdd = { monthNumber, year ->
-                scope.launch {
-                    try {
-                        val monthName = getMonthName(monthNumber, year)
-
-                        // Check if month already exists for this site
-                        if (monthRepository.isMonthNameExists(safeSite.id, monthName)) {
-                            errorMessage = "Bu ay zaten mevcut"
-                            showAddDialog = false
-                            return@launch
-                        }
-
-                        // Add new month
-                        val newMonth = Month(
-                            siteId = safeSite.id,
-                            name = monthName,
-                            year = year,
-                            monthNumber = monthNumber
-                        )
-                        monthRepository.insertMonth(newMonth)
-
-                        // Refresh months list and status
-                        months = monthRepository.getMonthsBySiteId(safeSite.id)
-                        val statusMap = mutableMapOf<Long, Boolean>()
-                        months.forEach { month ->
-                            statusMap[month.id] = paymentRepository.isMonthFullyPaidInSite(safeSite.id, month.id)
-                        }
-                        monthsStatus = statusMap
-                        showAddDialog = false
-                        errorMessage = null
-
-                    } catch (e: Exception) {
-                        errorMessage = "Ay eklenirken hata oluştu"
-                        showAddDialog = false
-                    }
-                }
+                viewModel.addMonth(monthNumber, year)
+                showAddDialog = false
             }
         )
     }
 
     // Edit Month Dialog
-    if (showEditDialog && selectedMonthForEdit != null && site != null) {
-        // Safe copy to avoid smart cast issues
-        val safeSite = site!!
-
-        EditMonthDialog(
-            month = selectedMonthForEdit!!,
-            onDismiss = {
-                showEditDialog = false
-                selectedMonthForEdit = null
-            },
-            onMonthUpdate = { month, newMonthNumber, newYear ->
-                scope.launch {
-                    try {
-                        val newMonthName = getMonthName(newMonthNumber, newYear)
-
-                        // Check if new month name already exists for this site (excluding current month)
-                        if (monthRepository.isMonthNameExistsForUpdate(safeSite.id, newMonthName, month.id)) {
-                            errorMessage = "Bu ay zaten mevcut"
-                            showEditDialog = false
-                            selectedMonthForEdit = null
-                            return@launch
-                        }
-
-                        // Update month
-                        val updatedMonth = month.copy(
-                            name = newMonthName,
-                            year = newYear,
-                            monthNumber = newMonthNumber
-                        )
-                        monthRepository.updateMonth(updatedMonth)
-
-                        // Refresh months list and status
-                        months = monthRepository.getMonthsBySiteId(safeSite.id)
-                        val statusMap = mutableMapOf<Long, Boolean>()
-                        months.forEach { monthItem ->
-                            statusMap[monthItem.id] = paymentRepository.isMonthFullyPaidInSite(safeSite.id, monthItem.id)
-                        }
-                        monthsStatus = statusMap
-                        showEditDialog = false
-                        selectedMonthForEdit = null
-                        errorMessage = null
-
-                    } catch (e: Exception) {
-                        errorMessage = "Ay güncellenirken hata oluştu"
-                        showEditDialog = false
-                        selectedMonthForEdit = null
-                    }
+    selectedMonthForEdit?.let { month ->
+        if (showEditDialog) {
+            EditMonthDialog(
+                month = month,
+                onDismiss = {
+                    showEditDialog = false
+                    selectedMonthForEdit = null
+                },
+                onMonthUpdate = { month, newMonthNumber, newYear ->
+                    viewModel.updateMonth(month, newMonthNumber, newYear)
+                    showEditDialog = false
+                    selectedMonthForEdit = null
+                },
+                onMonthDelete = { month ->
+                    viewModel.deleteMonth(month.id)
+                    showEditDialog = false
+                    selectedMonthForEdit = null
                 }
-            },
-            onMonthDelete = { month ->
-                scope.launch {
-                    try {
-                        monthRepository.deleteMonth(month.id)
-
-                        // Refresh months list and status
-                        months = monthRepository.getMonthsBySiteId(safeSite.id)
-                        val statusMap = mutableMapOf<Long, Boolean>()
-                        months.forEach { monthItem ->
-                            statusMap[monthItem.id] = paymentRepository.isMonthFullyPaidInSite(safeSite.id, monthItem.id)
-                        }
-                        monthsStatus = statusMap
-                        showEditDialog = false
-                        selectedMonthForEdit = null
-                        errorMessage = null
-
-                    } catch (e: Exception) {
-                        errorMessage = "Ay silinirken hata oluştu"
-                        showEditDialog = false
-                        selectedMonthForEdit = null
-                    }
-                }
-            }
-        )
+            )
+        }
     }
 
-    // Show error message if exists
-    errorMessage?.let { message ->
-        LaunchedEffect(message) {
-            kotlinx.coroutines.delay(3000)
-            errorMessage = null
+    // Auto-clear error after 3 seconds
+    LaunchedEffect(uiState.errorMessage) {
+        uiState.errorMessage?.let {
+            delay(3000)
+            viewModel.clearError()
         }
     }
 }
@@ -367,16 +232,6 @@ fun AySecimEkraniContent(
     }
 }
 
-// Helper function to generate month name
-private fun getMonthName(monthNumber: Int, year: Int): String {
-    val months = listOf(
-        "Ocak", "Şubat", "Mart", "Nisan",
-        "Mayıs", "Haziran", "Temmuz", "Ağustos",
-        "Eylül", "Ekim", "Kasım", "Aralık"
-    )
-    return "${months[monthNumber - 1]} $year"
-}
-
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun AySecimEkraniPreview() {
@@ -385,8 +240,7 @@ fun AySecimEkraniPreview() {
             months = listOf(
                 Month(1, 1, "Kasım 2025", 2025, 11, 0),
                 Month(2, 1, "Ekim 2025", 2025, 10, 0)
-            ),
-            onMonthLongClick = {}
+            )
         )
     }
 }
