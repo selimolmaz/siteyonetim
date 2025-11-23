@@ -12,6 +12,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.net.URLDecoder
@@ -37,10 +38,10 @@ class BlokSecimViewModel @Inject constructor(
     val uiState: StateFlow<BlokSecimUiState> = _uiState.asStateFlow()
 
     init {
-        loadData()
+        loadInitialData()
     }
 
-    private fun loadData() {
+    private fun loadInitialData() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
@@ -51,23 +52,17 @@ class BlokSecimViewModel @Inject constructor(
                     val foundMonth = monthRepository.getMonthById(selectedMonthId)
 
                     if (foundMonth != null) {
-                        val blocks = blockRepository.getBlocksBySiteId(foundSite.id)
-
-                        val statusMap = mutableMapOf<Long, Boolean>()
-                        blocks.forEach { block ->
-                            statusMap[block.id] = paymentRepository.isBlockFullyPaid(block.id, foundMonth.id)
-                        }
-
                         _uiState.update {
                             it.copy(
                                 site = foundSite,
                                 month = foundMonth,
-                                blocks = blocks,
-                                blocksStatus = statusMap,
                                 isLoading = false,
                                 errorMessage = null
                             )
                         }
+
+                        // İlk data yüklendikten sonra reactive updates başlat
+                        observeBlocksAndPayments(foundSite.id, foundMonth.id)
                     } else {
                         _uiState.update {
                             it.copy(
@@ -95,6 +90,34 @@ class BlokSecimViewModel @Inject constructor(
         }
     }
 
+    // Reaktif: Bloklar VE ödemeler birlikte dinleniyor
+    private fun observeBlocksAndPayments(siteId: Long, monthId: Long) {
+        viewModelScope.launch {
+            combine(
+                blockRepository.observeBlocksBySiteId(siteId),
+                paymentRepository.observePaymentsByMonth(monthId)
+            ) { blocks, _ ->
+                // Her blok için ödeme durumunu hesapla
+                val statusMap = mutableMapOf<Long, Boolean>()
+                blocks.forEach { block ->
+                    // Bloğun tüm kişileri için ödeme kontrolü
+                    val isFullyPaid = paymentRepository.isBlockFullyPaid(block.id, monthId)
+                    statusMap[block.id] = isFullyPaid
+                }
+
+                Pair(blocks, statusMap)
+            }.collect { (blocks, statusMap) ->
+                // Otomatik güncelleme
+                _uiState.update {
+                    it.copy(
+                        blocks = blocks,
+                        blocksStatus = statusMap
+                    )
+                }
+            }
+        }
+    }
+
     fun addBlock(blockName: String) {
         viewModelScope.launch {
             try {
@@ -110,7 +133,7 @@ class BlokSecimViewModel @Inject constructor(
                     name = blockName
                 )
                 blockRepository.insertBlock(newBlock)
-                loadData()
+                // Manuel refresh YOK - observeBlocksAndPayments otomatik günceller!
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = "Blok eklenirken hata oluştu") }
             }

@@ -13,6 +13,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.net.URLDecoder
@@ -43,10 +44,11 @@ class KisiSecimViewModel @Inject constructor(
     val uiState: StateFlow<KisiSecimUiState> = _uiState.asStateFlow()
 
     init {
-        loadData()
+        loadInitialData()
+        // Reactive updates başlatılacak loadInitialData içinde
     }
 
-    private fun loadData() {
+    private fun loadInitialData() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
@@ -61,24 +63,18 @@ class KisiSecimViewModel @Inject constructor(
                         val foundBlock = siteBlocks.find { it.name == selectedBlock }
 
                         if (foundBlock != null) {
-                            val people = personRepository.getPeopleByBlockId(foundBlock.id)
-
-                            val statusMap = mutableMapOf<Long, Boolean>()
-                            people.forEach { person ->
-                                statusMap[person.id] = paymentRepository.isPaymentSaved(person.id, foundMonth.id)
-                            }
-
                             _uiState.update {
                                 it.copy(
                                     site = foundSite,
                                     month = foundMonth,
                                     block = foundBlock,
-                                    people = people,
-                                    peopleStatus = statusMap,
                                     isLoading = false,
                                     errorMessage = null
                                 )
                             }
+
+                            // İlk data yüklendikten sonra reactive updates başlat
+                            observePeopleAndPayments(foundBlock.id, foundMonth.id)
                         } else {
                             _uiState.update {
                                 it.copy(
@@ -114,6 +110,38 @@ class KisiSecimViewModel @Inject constructor(
         }
     }
 
+    // Reactive updates - Kişiler VE ödemeler birlikte dinleniyor
+    private fun observePeopleAndPayments(blockId: Long, monthId: Long) {
+        viewModelScope.launch {
+            // İki Flow'u birleştir: people + payments
+            combine(
+                personRepository.observePeopleByBlockId(blockId),
+                paymentRepository.observePaymentsByMonth(monthId)
+            ) { people, payments ->
+                // Her kişi için ödeme durumunu hesapla
+                val statusMap = mutableMapOf<Long, Boolean>()
+                people.forEach { person ->
+                    val hasPayment = payments.any { payment ->
+                        payment.personId == person.id &&
+                                ((payment.isPaidEnabled && payment.paidAmount.isNotBlank() && payment.paidAmount != "0") ||
+                                        (payment.isWillPayEnabled && payment.willPayAmount.isNotBlank() && payment.willPayAmount != "0"))
+                    }
+                    statusMap[person.id] = hasPayment
+                }
+
+                Pair(people, statusMap)
+            }.collect { (people, statusMap) ->
+                // Otomatik güncelleme - Her değişiklikte UI yenilenir
+                _uiState.update {
+                    it.copy(
+                        people = people,
+                        peopleStatus = statusMap
+                    )
+                }
+            }
+        }
+    }
+
     fun addPerson(personName: String) {
         viewModelScope.launch {
             try {
@@ -129,7 +157,7 @@ class KisiSecimViewModel @Inject constructor(
                     name = personName
                 )
                 personRepository.insertPerson(newPerson)
-                loadData()
+                // Manuel refresh YOK - observePeopleAndPayments otomatik günceller!
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = "Kişi eklenirken hata oluştu") }
             }
@@ -148,7 +176,7 @@ class KisiSecimViewModel @Inject constructor(
 
                 val updatedPerson = person.copy(name = newName)
                 personRepository.updatePerson(updatedPerson)
-                loadData()
+                // Manuel refresh YOK - observePeopleAndPayments otomatik günceller!
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = "Kişi güncellenirken hata oluştu") }
             }
@@ -159,7 +187,7 @@ class KisiSecimViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 personRepository.deletePerson(personId)
-                loadData()
+                // Manuel refresh YOK - observePeopleAndPayments otomatik günceller!
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = "Kişi silinirken hata oluştu: ${e.message}") }
             }

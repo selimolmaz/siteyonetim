@@ -11,6 +11,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.net.URLDecoder
@@ -33,10 +34,10 @@ class AySecimViewModel @Inject constructor(
     val uiState: StateFlow<AySecimUiState> = _uiState.asStateFlow()
 
     init {
-        loadData()
+        loadInitialData()
     }
 
-    private fun loadData() {
+    private fun loadInitialData() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
@@ -44,22 +45,16 @@ class AySecimViewModel @Inject constructor(
                 val foundSite = allSites.find { it.name == siteName }
 
                 if (foundSite != null) {
-                    val months = monthRepository.getMonthsBySiteId(foundSite.id)
-
-                    val statusMap = mutableMapOf<Long, Boolean>()
-                    months.forEach { month ->
-                        statusMap[month.id] = paymentRepository.isMonthFullyPaidInSite(foundSite.id, month.id)
-                    }
-
                     _uiState.update {
                         it.copy(
                             site = foundSite,
-                            months = months,
-                            monthsStatus = statusMap,
                             isLoading = false,
                             errorMessage = null
                         )
                     }
+
+                    // İlk data yüklendikten sonra reactive updates başlat
+                    observeMonthsAndPayments(foundSite.id)
                 } else {
                     _uiState.update {
                         it.copy(
@@ -73,6 +68,44 @@ class AySecimViewModel @Inject constructor(
                     it.copy(
                         isLoading = false,
                         errorMessage = "Veriler yüklenirken hata oluştu"
+                    )
+                }
+            }
+        }
+    }
+
+    // Reaktif: Aylar dinleniyor - her ay için ayrı ayrı ödeme flow'ları birleştiriliyor
+    private fun observeMonthsAndPayments(siteId: Long) {
+        viewModelScope.launch {
+            // Önce ayları dinle
+            monthRepository.observeMonthsBySiteId(siteId).collect { months ->
+                // Her ay için ödeme durumunu hesapla
+                val statusMap = mutableMapOf<Long, Boolean>()
+
+                months.forEach { month ->
+                    // Her ay için ödemeler dinleniyor
+                    launch {
+                        paymentRepository.observePaymentsByMonth(month.id).collect { _ ->
+                            // Bu ayın tüm blokları için kontrol
+                            val isFullyPaid = paymentRepository.isMonthFullyPaidInSite(siteId, month.id)
+                            statusMap[month.id] = isFullyPaid
+
+                            // UI'ı güncelle
+                            _uiState.update {
+                                it.copy(
+                                    months = months,
+                                    monthsStatus = statusMap.toMap()
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // İlk yüklemede de göster
+                _uiState.update {
+                    it.copy(
+                        months = months,
+                        monthsStatus = statusMap.toMap()
                     )
                 }
             }
@@ -98,7 +131,7 @@ class AySecimViewModel @Inject constructor(
                     monthNumber = monthNumber
                 )
                 monthRepository.insertMonth(newMonth)
-                loadData()
+                // Manuel refresh YOK - observeMonthsAndPayments otomatik günceller!
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = "Ay eklenirken hata oluştu") }
             }
@@ -123,7 +156,7 @@ class AySecimViewModel @Inject constructor(
                     monthNumber = newMonthNumber
                 )
                 monthRepository.updateMonth(updatedMonth)
-                loadData()
+                // Manuel refresh YOK - observeMonthsAndPayments otomatik günceller!
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = "Ay güncellenirken hata oluştu") }
             }
@@ -134,7 +167,7 @@ class AySecimViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 monthRepository.deleteMonth(monthId)
-                loadData()
+                // Manuel refresh YOK - observeMonthsAndPayments otomatik günceller!
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = "Ay silinirken hata oluştu") }
             }

@@ -38,10 +38,10 @@ class OdemeViewModel @Inject constructor(
     val uiState: StateFlow<OdemeUiState> = _uiState.asStateFlow()
 
     init {
-        loadData()
+        loadInitialData()
     }
 
-    private fun loadData() {
+    private fun loadInitialData() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
@@ -55,20 +55,18 @@ class OdemeViewModel @Inject constructor(
                         val foundPerson = personRepository.getPersonById(selectedPersonId)
 
                         if (foundPerson != null) {
-                            val currentPayment = paymentRepository.getPaymentByPersonAndMonth(
-                                foundPerson.id, foundMonth.id
-                            )
-
                             _uiState.update {
                                 it.copy(
                                     site = foundSite,
                                     month = foundMonth,
                                     person = foundPerson,
-                                    currentPayment = currentPayment,
                                     isLoading = false,
                                     errorMessage = null
                                 )
                             }
+
+                            // İlk data yüklendikten sonra reactive updates başlat
+                            observePayment(foundPerson.id, foundMonth.id)
                         } else {
                             _uiState.update {
                                 it.copy(
@@ -104,6 +102,17 @@ class OdemeViewModel @Inject constructor(
         }
     }
 
+    // Reaktif: Bu kişinin bu aydaki ödemesini dinle
+    private fun observePayment(personId: Long, monthId: Long) {
+        viewModelScope.launch {
+            paymentRepository.observePaymentByPersonAndMonth(personId, monthId)
+                .collect { payment ->
+                    // Ödeme değiştiğinde otomatik güncelleme
+                    _uiState.update { it.copy(currentPayment = payment) }
+                }
+        }
+    }
+
     fun savePayment(
         paidAmount: String,
         willPayAmount: String,
@@ -127,9 +136,7 @@ class OdemeViewModel @Inject constructor(
                 )
 
                 paymentRepository.savePayment(newPayment)
-
-                // Update state with new payment
-                _uiState.update { it.copy(currentPayment = newPayment) }
+                // Manuel update YOK - observePayment otomatik günceller!
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = "Ödeme kaydedilirken hata oluştu: ${e.message}") }
             }
@@ -143,9 +150,7 @@ class OdemeViewModel @Inject constructor(
                 val month = _uiState.value.month ?: return@launch
 
                 paymentRepository.removePaymentByPersonAndMonth(person.id, month.id)
-
-                // Update state to remove payment
-                _uiState.update { it.copy(currentPayment = null) }
+                // Manuel update YOK - observePayment otomatik null döner!
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = "Ödeme silinirken hata oluştu: ${e.message}") }
             }
