@@ -2,8 +2,14 @@ package com.makak.learnactivityapp.database.repository
 
 import com.makak.learnactivityapp.database.dao.SiteDao
 import com.makak.learnactivityapp.database.entities.Site
+import kotlinx.coroutines.flow.Flow
 
 class SiteRepository(private val siteDao: SiteDao) {
+
+    // Flow fonksiyonu
+    fun observeAllSites(): Flow<List<Site>> {
+        return siteDao.observeAllSites()
+    }
 
     suspend fun getAllSites(): List<Site> {
         return siteDao.getAllSites()

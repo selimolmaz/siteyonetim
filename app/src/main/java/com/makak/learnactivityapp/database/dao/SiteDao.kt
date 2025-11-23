@@ -5,9 +5,15 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
 import com.makak.learnactivityapp.database.entities.Site
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface SiteDao {
+
+    // Flow ile reactive site tracking
+    @Query("SELECT * FROM sites ORDER BY created_at DESC")
+    fun observeAllSites(): Flow<List<Site>>
+
     @Query("SELECT * FROM sites ORDER BY created_at DESC")
     suspend fun getAllSites(): List<Site>
 

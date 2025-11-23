@@ -5,9 +5,15 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
 import com.makak.learnactivityapp.database.entities.Person
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface PersonDao {
+
+    // Flow ile reactive person tracking
+    @Query("SELECT * FROM people WHERE block_id = :blockId ORDER BY created_at ASC")
+    fun observePeopleByBlockId(blockId: Long): Flow<List<Person>>
+
     @Query("SELECT * FROM people WHERE block_id = :blockId ORDER BY created_at ASC")
     suspend fun getPeopleByBlockId(blockId: Long): List<Person>
 

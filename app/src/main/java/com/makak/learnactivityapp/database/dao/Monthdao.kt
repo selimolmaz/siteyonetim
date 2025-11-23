@@ -5,9 +5,15 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
 import com.makak.learnactivityapp.database.entities.Month
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface MonthDao {
+
+    // Flow ile reactive month tracking
+    @Query("SELECT * FROM months WHERE site_id = :siteId ORDER BY year DESC, month_number DESC")
+    fun observeMonthsBySiteId(siteId: Long): Flow<List<Month>>
+
     @Query("SELECT * FROM months WHERE site_id = :siteId ORDER BY year DESC, month_number DESC")
     suspend fun getMonthsBySiteId(siteId: Long): List<Month>
 

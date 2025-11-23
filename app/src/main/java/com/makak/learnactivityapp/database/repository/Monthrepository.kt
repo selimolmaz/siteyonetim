@@ -2,8 +2,14 @@ package com.makak.learnactivityapp.database.repository
 
 import com.makak.learnactivityapp.database.dao.MonthDao
 import com.makak.learnactivityapp.database.entities.Month
+import kotlinx.coroutines.flow.Flow
 
 class MonthRepository(private val monthDao: MonthDao) {
+
+    // Flow fonksiyonu
+    fun observeMonthsBySiteId(siteId: Long): Flow<List<Month>> {
+        return monthDao.observeMonthsBySiteId(siteId)
+    }
 
     suspend fun getMonthsBySiteId(siteId: Long): List<Month> {
         return monthDao.getMonthsBySiteId(siteId)

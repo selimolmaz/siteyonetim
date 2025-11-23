@@ -2,8 +2,18 @@ package com.makak.learnactivityapp.database.repository
 
 import com.makak.learnactivityapp.database.dao.PaymentDao
 import com.makak.learnactivityapp.database.entities.Payment
+import kotlinx.coroutines.flow.Flow
 
 class PaymentRepository(private val paymentDao: PaymentDao) {
+
+    // Flow fonksiyonları
+    fun observePaymentByPersonAndMonth(personId: Long, monthId: Long): Flow<Payment?> {
+        return paymentDao.observePaymentByPersonAndMonth(personId, monthId)
+    }
+
+    fun observePaymentsByMonth(monthId: Long): Flow<List<Payment>> {
+        return paymentDao.observePaymentsByMonth(monthId)
+    }
 
     suspend fun savePayment(payment: Payment): Long {
         return paymentDao.insertOrUpdatePayment(payment)

@@ -6,6 +6,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import com.makak.learnactivityapp.database.entities.Payment
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface PaymentDao {
@@ -22,6 +23,14 @@ interface PaymentDao {
     @Query("DELETE FROM payments WHERE person_id = :personId AND month_id = :monthId")
     suspend fun deletePaymentByPersonAndMonth(personId: Long, monthId: Long)
 
+    // Flow ile reactive payment tracking
+    @Query("""
+        SELECT * FROM payments 
+        WHERE person_id = :personId AND month_id = :monthId 
+        LIMIT 1
+    """)
+    fun observePaymentByPersonAndMonth(personId: Long, monthId: Long): Flow<Payment?>
+
     // Belirli bir kişi ve ay için ödeme kaydını getir
     @Query("""
         SELECT * FROM payments 
@@ -29,6 +38,10 @@ interface PaymentDao {
         LIMIT 1
     """)
     suspend fun getPaymentByPersonAndMonth(personId: Long, monthId: Long): Payment?
+
+    // Bir ay için tüm ödemeleri observe et
+    @Query("SELECT * FROM payments WHERE month_id = :monthId")
+    fun observePaymentsByMonth(monthId: Long): Flow<List<Payment>>
 
     // Belirli kişi ve ay için ödeme kaydedildi mi kontrol et
     @Query("""

@@ -5,9 +5,15 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
 import com.makak.learnactivityapp.database.entities.Block
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface BlockDao {
+
+    // Flow ile reactive block tracking
+    @Query("SELECT * FROM blocks WHERE site_id = :siteId ORDER BY created_at ASC")
+    fun observeBlocksBySiteId(siteId: Long): Flow<List<Block>>
+
     @Query("SELECT * FROM blocks WHERE site_id = :siteId ORDER BY created_at ASC")
     suspend fun getBlocksBySiteId(siteId: Long): List<Block>
 

@@ -2,8 +2,14 @@ package com.makak.learnactivityapp.database.repository
 
 import com.makak.learnactivityapp.database.dao.BlockDao
 import com.makak.learnactivityapp.database.entities.Block
+import kotlinx.coroutines.flow.Flow
 
 class BlockRepository(private val blockDao: BlockDao) {
+
+    // Flow fonksiyonu
+    fun observeBlocksBySiteId(siteId: Long): Flow<List<Block>> {
+        return blockDao.observeBlocksBySiteId(siteId)
+    }
 
     suspend fun getBlocksBySiteId(siteId: Long): List<Block> {
         return blockDao.getBlocksBySiteId(siteId)
